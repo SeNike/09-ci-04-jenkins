@@ -1,0 +1,49 @@
+node("linux") {
+
+    // Define a boolean parameter 'prod_run'
+    properties([
+        parameters([
+            booleanParam(name: 'prod_run', defaultValue: false, description: 'Set to true to run ansible-playbook without --check --diff')
+        ])
+    ])
+
+    // Declare a variable for secret_check
+    def secret_check = false
+    
+    stage("Git checkout") {
+        git url: 'https://github.com/aragastmatb/example-playbook.git'
+    }
+
+    stage("Sample define secret_check") {
+        secret_check = true
+    }
+
+    stage('Setup Ansible Environment') {
+        sh '''
+        python3 -m venv ansible-env
+        source ansible-env/bin/activate
+        pip install --upgrade pip
+        pip install ansible-core==2.15.7 ansible==8.7.0
+        '''
+    }
+
+    stage("Run playbook") {
+        if (secret_check) {
+            if (params.prod_run) {
+                // If prod_run=true, run ansible-playbook without flags
+                sh '''
+                    source ansible-env/bin/activate
+                    ansible-playbook site.yml -i inventory/prod.yml -vvv
+                '''                
+            } else {
+                // If prod_run=false, run ansible-playbook with --check --diff flags
+                sh '''
+                    source ansible-env/bin/activate
+                    ansible-playbook site.yml -i inventory/prod.yml --check --diff
+                '''
+            }
+        } else {
+            echo 'Need more action before running playbook'
+        }
+    }
+}
